@@ -9,28 +9,57 @@ import UIKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
 
+    let storage = Storage()
+    var apiClient: APIClientInterface?
 
+    // The following attributes should obviously be retained elsewhere (for instance with some dependencies manager)
+    var loginInteractor: LoginInteractor?
+    var loginPresenter: LoginPresenter?
+
+    var listInteractor: ListInteractor?
+    var listPresenter: ListPresenter?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        apiClient = APIClient(storage: storage)
+
+        window = UIWindow(frame: UIScreen.main.bounds)
+
+        /// This should be delegated to some routing layer (for instance with a coordinator pattern)
+        let storyboard = UIStoryboard(name: "LoginView", bundle: nil)
+        if let loginViewController = storyboard.instantiateViewController(withIdentifier: "LoginViewController") as? LoginViewController {
+            let loginService = LoginService(storage: storage)
+            let loginInteractor = LoginInteractor(loginService: loginService, listService: ListService(apiClient: apiClient))
+            self.loginInteractor = loginInteractor
+
+            let loginPresenter = LoginPresenter()
+            self.loginPresenter = loginPresenter
+
+            LoginAssembler.assemble(loginViewController, loginInteractor, loginPresenter)
+
+            window?.rootViewController = loginViewController
+            window?.makeKeyAndVisible()
+
+            loginViewController.navigationToHomeTriggered = { [weak self] in
+                guard let self = self else { return }
+
+                let storyboard = UIStoryboard(name: "ListView", bundle: nil)
+                if let listViewController = storyboard.instantiateViewController(withIdentifier: "ListViewController") as? ListViewController {
+                    let listService = ListService(apiClient: self.apiClient)
+                    let listInteractor = ListInteractor(listService: listService)
+                    self.listInteractor = listInteractor
+
+                    let listPresenter = ListPresenter()
+                    self.listPresenter = listPresenter
+
+                    ListAssembler.assemble(listViewController, listInteractor, listPresenter)
+
+                    self.window?.rootViewController = listViewController
+                }
+            }
+        }
+
         return true
     }
-
-    // MARK: UISceneSession Lifecycle
-
-    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        // Called when a new scene session is being created.
-        // Use this method to select a configuration to create the new scene with.
-        return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
-    }
-
-    func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
-        // Called when the user discards a scene session.
-        // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
-        // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
-    }
-
-
 }
-
